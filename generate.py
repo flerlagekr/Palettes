@@ -149,7 +149,7 @@ def lambda_handler(event, context):
         # Generate the palette name, cleaning invalid characters along the way.
         submitted = submitName[i]
         submitted = submitted.replace('"', "'")
-        submitted = submitted.replace('&', " and ")
+        submitted = submitted.replace('&', "and")
 
         palette = paletteName[i]
         palette = palette.replace('"', "'")
