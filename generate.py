@@ -83,22 +83,6 @@ def phone_home (subject, msg):
         log (e.response['Error']['Message'])
 
 #------------------------------------------------------------------------------------------------------------------------------
-# Upload file to S3
-#------------------------------------------------------------------------------------------------------------------------------
-def uploadS3(inFile, s3Bucket, s3ObjectName):
-    # Upload the file
-    s3 = boto3.client('s3')
-
-    try:
-        response = s3.upload_file(inFile, s3Bucket, s3ObjectName)
-
-    except ClientError as e:
-        log(e)
-        return False
-
-    return True
-
-#------------------------------------------------------------------------------------------------------------------------------
 # Check a string to make sure it's a valid hex color code.
 #------------------------------------------------------------------------------------------------------------------------------
 def validHex(hexString):
@@ -152,12 +136,11 @@ def lambda_handler(event, context):
 
     # Open the output preferences file and write the beginning.
     prefFile = "Preferences.tps"
-    out = open(prefFile,'w') 
 
-    out.write ("<?xml version='1.0'?>\n")
-    out.write ("\n")
-    out.write ("<workbook>\n")
-    out.write ("    <preferences>\n")
+    out = "<?xml version='1.0'?>\n"
+    out = out + "\n"
+    out = out + "<workbook>\n"
+    out = out + "    <preferences>\n"
 
     outString = ""
 
@@ -189,7 +172,7 @@ def lambda_handler(event, context):
             outString = outString + 'ordered-diverging">'
 
         outString = outString + "\n"
-        out.write(outString)
+        out = out + outString
 
         colors = hexList[i].split(",")
 
@@ -202,7 +185,7 @@ def lambda_handler(event, context):
             if validHex(hexColor)==True:
                 # Write the hex code.
                 outString = "            <color>#" + hexColor + "</color>\n"
-                out.write(outString)
+                out = out + outString
 
             else:
                 # Don't write the hex code, log an error, and send a notification.
@@ -212,16 +195,15 @@ def lambda_handler(event, context):
                 phone_home(errSubject, errMsg)
 
         # Close out the palette.
-        out.write("        </color-palette>\n")
+        out = out + "        </color-palette>\n"
 
 
     # Write the end of the preferences file.
-    out.write ("    </preferences>\n")
-    out.write ("</workbook>\n")
-    out.close()
+    out = out + "    </preferences>\n"
+    out = out + "</workbook>\n"
 
     # Upload to S3
-    result = uploadS3(prefFile, prefBucket, prefFile)
+    response = s3.put_object(Bucket=prefBucket, Key=prefFile, Body=out) 
     log("Wrote preferences file to S3.")
 
 #------------------------------------------------------------------------------------------------------------------------------
