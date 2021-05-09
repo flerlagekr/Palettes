@@ -15,6 +15,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 senderAddress = "Ken Flerlage <ken@flerlagetwins.com>"
 ownerAddress = "flerlagekr@gmail.com"
+paletteList = []
 
 #------------------------------------------------------------------------------------------------------------------------------
 # Write a message to the log (or screen). When running in AWS, print will write to Cloudwatch.
@@ -22,6 +23,17 @@ ownerAddress = "flerlagekr@gmail.com"
 def log (msg):
     logTimeStamp = datetime.datetime.today().strftime("%Y-%m-%d %H:%M:%S")
     print(str(logTimeStamp) + ": " + msg)
+
+#------------------------------------------------------------------------------------------------------------------------------
+# Find a palette name within the palette list and get a unique name.
+#------------------------------------------------------------------------------------------------------------------------------
+def uniqueName(palName):
+    tempName = palName
+
+    while tempName in paletteList:
+        tempName = tempName + " "
+
+    return tempName
 
 #------------------------------------------------------------------------------------------------------------------------------
 # Send message to Ken
@@ -155,7 +167,10 @@ def lambda_handler(event, context):
         palette = palette.replace('"', "'")
         palette = palette.replace('&', "and")
 
-        pName = submitted + ": " + palette
+        pName = palette + " by " + submitted
+
+        pName = uniqueName(pName)
+        paletteList.append(pName)
 
         # Write the appropriate string based on the palette type.
         pType = colorType[i][0:3].upper()
