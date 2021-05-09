@@ -213,7 +213,6 @@ def lambda_handler(event, context):
         # Close out the palette.
         out = out + "        </color-palette>\n"
 
-
     # Write the end of the preferences file.
     out = out + "    </preferences>\n"
     out = out + "</workbook>\n"
