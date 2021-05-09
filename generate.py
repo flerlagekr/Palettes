@@ -25,7 +25,7 @@ def log (msg):
     print(str(logTimeStamp) + ": " + msg)
 
 #------------------------------------------------------------------------------------------------------------------------------
-# Find a palette name within the palette list and get a unique name.
+# Tableau will ignore palettes with the same name (except first), so add spaces to make the name unique.
 #------------------------------------------------------------------------------------------------------------------------------
 def uniqueName(palName):
     tempName = palName
