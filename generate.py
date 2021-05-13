@@ -12,6 +12,7 @@ import datetime
 import time
 import gspread
 import re
+from PIL import ImageColor
 from oauth2client.service_account import ServiceAccountCredentials
 
 senderAddress = "Ken Flerlage <ken@flerlagetwins.com>"
@@ -157,6 +158,11 @@ def lambda_handler(event, context):
 
     outString = ""
 
+    # Initialize a matrix for generating the detailed data set.
+    matrix = {}
+
+    rowCount = 0
+
     # Loop through each palette, generate the XML, and write to the file.
     for i in range(1, len(paletteName)):
         # Generate the palette name, cleaning invalid characters along the way.
@@ -192,6 +198,8 @@ def lambda_handler(event, context):
 
         colors = hexList[i].split(",")
 
+        colorNum = 1
+
         for j in range(0, len(colors)):
             # Clean up the hex code and verify that it is a hex code.
             hexColor = colors[j].strip()
@@ -203,12 +211,38 @@ def lambda_handler(event, context):
                 outString = "            <color>#" + hexColor + "</color>\n"
                 out = out + outString
 
+                # We need to round the color to the nearest 5 of R, G, and B.
+                RGB = ImageColor.getcolor("#" + hexColor, "RGB")
+                R = RGB[0]
+                G = RGB[1]
+                B = RGB[2]
+
+                # Round to nearest 5.
+                R = 5 * round(R/5)
+                G = 5 * round(G/5)
+                B = 5 * round(B/5)
+
+                # Convert rounded values to hex.
+                RGB = (R, G, B)
+                hexColorRounded = '%02x%02x%02x' % RGB
+
+                # Add the color to the matrix.
+                matrix[rowCount, 0]  = submitName[i]
+                matrix[rowCount, 1]  = paletteName[i]
+                matrix[rowCount, 2]  = colorNum
+                matrix[rowCount, 3]  = hexColor
+                matrix[rowCount, 4]  = hexColorRounded
+
+                rowCount += 1
+                colorNum += 1
+
             else:
                 # Don't write the hex code, log an error, and send a notification.
-                errSubject = "Invalid Hex Code"
-                errMsg = "Invalid hex color code found in palette, '" + pName + "'. The hex code is '" + hexColor + "'."
-                log(errMsg)
-                phone_home(errSubject, errMsg)
+                if paletteName[i] != "All Colors":
+                    errSubject = "Invalid Hex Code"
+                    errMsg = "Invalid hex color code found in palette, '" + pName + "'. The hex code is '" + hexColor + "'."
+                    log(errMsg)
+                    phone_home(errSubject, errMsg)
 
         # Close out the palette.
         out = out + "        </color-palette>\n"
@@ -220,6 +254,28 @@ def lambda_handler(event, context):
     # Upload to S3
     response = s3.put_object(Bucket=prefBucket, Key=prefFile, Body=out) 
     log("Wrote preferences file to S3.")
+
+    # Write data to Google Sheet
+    rangeString = "A2:E" + str(rowCount+1)
+
+    cell_list = worksheet.range(rangeString)
+
+    row = 0
+    column = 0
+
+    for cell in cell_list: 
+        cell.value = matrix[row,column]
+        column += 1
+        if (column > 4):
+            column=0
+            row += 1
+
+    # Update in batch   
+    worksheet = sheet.worksheet("Detail")
+    worksheet.update_cells(cell_list)
+
+    log("Wrote color details to Detail sheet.")
+
 
 #------------------------------------------------------------------------------------------------------------------------------
 # Labmda will always call the lambda handler function, so this will not get run unless you are running locally.
