@@ -1,6 +1,7 @@
 #  Written by Ken Flerlage, April, 2021
 #
 #  Generate a Tableau color palette file based on crowdsourced palettes from the Tableau "Datafam"
+#  Credit to Rodrigo Calloni for the original concept.
 #  File is written to a public S3 bucket and can be downloaded here: https://flerlage-apps.s3.us-east-2.amazonaws.com/Preferences.tps
 #
 #  This code is in the public domain
