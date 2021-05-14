@@ -15,6 +15,7 @@ import gspread
 import re
 from PIL import ImageColor
 from oauth2client.service_account import ServiceAccountCredentials
+import webcolors
 
 senderAddress = "Ken Flerlage <ken@flerlagetwins.com>"
 ownerAddress = "flerlagekr@gmail.com"
@@ -37,6 +38,44 @@ def uniqueName(palName):
         tempName = tempName + " "
 
     return tempName
+
+#------------------------------------------------------------------------------------------------------------------------------
+# Get the closest matching color name.
+#------------------------------------------------------------------------------------------------------------------------------
+def closestColor(color):
+    minColors = {}
+
+    rd = 255
+    gd = 255
+    bd = 255
+
+    for colorHex, colorName in webcolors.CSS3_HEX_TO_NAMES.items():
+        try:
+            rC, gC, bC = webcolors.hex_to_rgb(colorHex)
+            rD = (rC - color[0]) ** 2
+            gD = (gC - color[1]) ** 2
+            bD = (bC - color[2]) ** 2
+
+        except ValueError:
+            pass
+
+        minColors[(rD + gD + bD)] = colorName
+
+    return minColors[min(minColors.keys())]
+
+#------------------------------------------------------------------------------------------------------------------------------
+# Get the color name.
+#------------------------------------------------------------------------------------------------------------------------------
+def getColorName(color):
+    try:
+        # Does this exact color have a name? 
+        closestName = webcolors.rgb_to_name(color, "css3")
+    
+    except ValueError:
+        # Exact color does not have a name. Find the closest color.
+        closestName = closestColor(color)
+        
+    return closestName
 
 #------------------------------------------------------------------------------------------------------------------------------
 # Send message to Ken
@@ -167,86 +206,96 @@ def lambda_handler(event, context):
     # Loop through each palette, generate the XML, and write to the file.
     for i in range(1, len(paletteName)):
         # Generate the palette name, cleaning invalid characters along the way.
-        submitted = submitName[i]
-        submitted = submitted.replace('"', "'")
-        submitted = submitted.replace('&', "and")
+        if not(submitName[i] == "Ken Flerlage" and paletteName[i] == "All Colors"):
+            # All Colors is used in Tableau only.
+            submitted = submitName[i]
+            submitted = submitted.replace('"', "'")
+            submitted = submitted.replace('&', "and")
 
-        palette = paletteName[i]
-        palette = palette.replace('"', "'")
-        palette = palette.replace('&', "and")
+            palette = paletteName[i]
+            palette = palette.replace('"', "'")
+            palette = palette.replace('&', "and")
 
-        pName = palette + " by " + submitted
+            pName = palette + " by " + submitted
 
-        pName = uniqueName(pName)
-        paletteList.append(pName)
+            pName = uniqueName(pName)
+            paletteList.append(pName)
 
-        # Write the appropriate string based on the palette type.
-        pType = colorType[i][0:3].upper()
+            # Write the appropriate string based on the palette type.
+            pType = colorType[i][0:3].upper()
 
-        outString = '    	<color-palette name="' + pName + '" type="'
+            outString = '    	<color-palette name="' + pName + '" type="'
 
-        if pType=="CAT":
-            outString = outString + 'regular">'
+            if pType=="CAT":
+                outString = outString + 'regular">'
 
-        if pType=="SEQ":
-            outString = outString + 'ordered-sequential">'
+            if pType=="SEQ":
+                outString = outString + 'ordered-sequential">'
 
-        if pType=="DIV":
-            outString = outString + 'ordered-diverging">'
+            if pType=="DIV":
+                outString = outString + 'ordered-diverging">'
 
-        outString = outString + "\n"
-        out = out + outString
+            outString = outString + "\n"
+            out = out + outString
 
-        colors = hexList[i].split(",")
+            colors = hexList[i].split(",")
 
-        colorNum = 1
+            colorNum = 1
 
-        for j in range(0, len(colors)):
-            # Clean up the hex code and verify that it is a hex code.
-            hexColor = colors[j].strip()
-            hexColor = hexColor.replace("#", "")
-            hexColor = hexColor.lower()
+            for j in range(0, len(colors)):
+                # Clean up the hex code and verify that it is a hex code.
+                hexColor = colors[j].strip()
+                hexColor = hexColor.replace("#", "")
+                hexColor = hexColor.lower()
 
-            if validHex(hexColor)==True:
-                # Write the hex code.
-                outString = "            <color>#" + hexColor + "</color>\n"
-                out = out + outString
+                if validHex(hexColor)==True:
+                    # Write the hex code.
+                    outString = "            <color>#" + hexColor + "</color>\n"
+                    out = out + outString
 
-                # We need to round the color to the nearest 5 of R, G, and B.
-                RGB = ImageColor.getcolor("#" + hexColor, "RGB")
-                R = RGB[0]
-                G = RGB[1]
-                B = RGB[2]
+                    # We need to round the color to the nearest 5 of R, G, and B.
+                    RGB = ImageColor.getcolor("#" + hexColor, "RGB")
+                    rOriginal = RGB[0]
+                    gOriginal = RGB[1]
+                    bOriginal = RGB[2]
 
-                # Round to nearest 5.
-                R = 5 * round(R/5)
-                G = 5 * round(G/5)
-                B = 5 * round(B/5)
+                    # Get closest name
+                    colorName = getColorName(RGB)
 
-                # Convert rounded values to hex.
-                RGB = (R, G, B)
-                hexColorRounded = '%02x%02x%02x' % RGB
+                    # Round to nearest 5.
+                    R = 5 * round(rOriginal/5)
+                    G = 5 * round(gOriginal/5)
+                    B = 5 * round(bOriginal/5)
 
-                # Add the color to the matrix.
-                matrix[rowCount, 0]  = submitName[i]
-                matrix[rowCount, 1]  = paletteName[i]
-                matrix[rowCount, 2]  = colorNum
-                matrix[rowCount, 3]  = hexColor
-                matrix[rowCount, 4]  = hexColorRounded
+                    # Convert rounded values to hex.
+                    RGB = (R, G, B)
+                    hexColorRounded = '%02x%02x%02x' % RGB
 
-                rowCount += 1
-                colorNum += 1
+                    # Add the color to the matrix.
+                    matrix[rowCount, 0]  = submitName[i]
+                    matrix[rowCount, 1]  = paletteName[i]
+                    matrix[rowCount, 2]  = colorNum
+                    matrix[rowCount, 3]  = hexColor
+                    matrix[rowCount, 4]  = hexColorRounded
+                    matrix[rowCount, 5]  = colorName
+                    matrix[rowCount, 6]  = rOriginal
+                    matrix[rowCount, 7]  = gOriginal
+                    matrix[rowCount, 8]  = bOriginal
 
-            else:
-                # Don't write the hex code, log an error, and send a notification.
-                if paletteName[i] != "All Colors":
-                    errSubject = "Invalid Hex Code"
-                    errMsg = "Invalid hex color code found in palette, '" + pName + "'. The hex code is '" + hexColor + "'."
-                    log(errMsg)
-                    phone_home(errSubject, errMsg)
+                    rowCount += 1
+                    colorNum += 1
 
-        # Close out the palette.
-        out = out + "        </color-palette>\n"
+                else:
+                    # Don't write the hex code, log an error, and send a notification.
+                    if paletteName[i] != "All Colors":
+                        errSubject = "Invalid Hex Code"
+                        errMsg = "Invalid hex color code found in palette, '" + pName + "'. The hex code is '" + hexColor + "'."
+                        log(errMsg)
+                        phone_home(errSubject, errMsg)
+
+
+            # Close out the palette.
+            out = out + "        </color-palette>\n"
 
     # Write the end of the preferences file.
     out = out + "    </preferences>\n"
@@ -257,7 +306,7 @@ def lambda_handler(event, context):
     log("Wrote preferences file to S3.")
 
     # Write data to Google Sheet
-    rangeString = "A2:E" + str(rowCount+1)
+    rangeString = "A2:I" + str(rowCount+1)
 
     cell_list = worksheet.range(rangeString)
 
@@ -267,7 +316,7 @@ def lambda_handler(event, context):
     for cell in cell_list: 
         cell.value = matrix[row,column]
         column += 1
-        if (column > 4):
+        if (column > 8):
             column=0
             row += 1
 
