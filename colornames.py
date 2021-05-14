@@ -1,12 +1,3 @@
-#  Written by Ken Flerlage, April, 2021
-#
-#  Generate a Tableau color palette file based on crowdsourced palettes from the Tableau "Datafam"
-#  Credit to Rodrigo Calloni for the original concept.
-#  File is written to a public S3 bucket and can be downloaded here: https://flerlage-apps.s3.us-east-2.amazonaws.com/Preferences.tps
-#
-#  This code is in the public domain
-
-import boto3
 import json
 import os
 import datetime
@@ -16,10 +7,7 @@ import requests
 import re
 from PIL import ImageColor
 from oauth2client.service_account import ServiceAccountCredentials
-
-senderAddress = "Ken Flerlage <ken@flerlagetwins.com>"
-ownerAddress = "flerlagekr@gmail.com"
-paletteList = []
+import webcolors
 
 #------------------------------------------------------------------------------------------------------------------------------
 # Write a message to the log (or screen). When running in AWS, print will write to Cloudwatch.
@@ -29,96 +17,57 @@ def log (msg):
     print(str(logTimeStamp) + ": " + msg)
 
 #------------------------------------------------------------------------------------------------------------------------------
-# Tableau will ignore palettes with the same name (except first), so add spaces to make the name unique.
+# Get the closest matching color name.
 #------------------------------------------------------------------------------------------------------------------------------
-def uniqueName(palName):
-    tempName = palName
+def getClosestColorName(RGB, Step):
+    colorName = getColorName(RGB)
 
-    while tempName in paletteList:
-        tempName = tempName + " "
+    if colorName == "Unknown":
+        R = RGB[0]
+        G = RGB[1]
+        B = RGB[2]
 
-    return tempName
+        log("Finding closest match for RGB color: (" + str(R) + ", " + str(B) + ", " + str(G) + ")")
 
-#------------------------------------------------------------------------------------------------------------------------------
-# Send message to Ken
-#------------------------------------------------------------------------------------------------------------------------------
-def phone_home (subject, msg):
-    sender = senderAddress
-    recipient = ownerAddress
+        # Try ranges of each color.
+        rMin = R
+        rMax = min(R + Step, 255)
 
-    region = "us-east-2"
+        gMin = G
+        gMax = min(G + Step, 255)
 
-    # The email body for recipients with non-HTML email clients.
-    bodyText = (msg)
-                
-    # The HTML body of the email.
-    bodyHTML = """
-    <html>
-    <head></head>
-    <body>
-    <p style="font-family:Georgia;font-size:15px">""" + msg + """</p>
-    </body>
-    </html>
-    """            
+        bMin = B
+        bMax = min(B + Step, 255)
 
-    # The character encoding for the email.
-    charSet = "UTF-8"
-
-    # Create a new SES resource and specify a region.
-    client = boto3.client('ses',region_name=region)
-
-    # Try to send the email.
-    try:
-        #Provide the contents of the email.
-        response = client.send_email(
-            Destination={
-                'ToAddresses': [
-                    recipient,
-                ],
-            },
-            Message={
-                'Body': {
-                    'Html': {
-                        'Charset': charSet,
-                        'Data': bodyHTML,
-                    },
-                    'Text': {
-                        'Charset': charSet,
-                        'Data': bodyText,
-                    },
-                },
-                'Subject': {
-                    'Charset': charSet,
-                    'Data': subject,
-                },
-            },
-            Source=sender,
-        )
-    # Display an error if something goes wrong.	
-    except ClientError as e:
-        log (e.response['Error']['Message'])
-
-#------------------------------------------------------------------------------------------------------------------------------
-# Check a string to make sure it's a valid hex color code.
-#------------------------------------------------------------------------------------------------------------------------------
-def validHex(hexString):
- 
-    # Regex to check for valid. hexadecimal color code.
-    regexPattern = "^([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
- 
-    # Compile the ReGex
-    p = re.compile(regexPattern)
- 
-    # If the string is empty, return false
-    if hexString == None:
-        return False
- 
-    # Check if the string matches the pattern.
-    if re.search(p, hexString):
-        return True
+        # Loop through, adding 1 to each color until we get a match.
+        for rNew in range(rMin, rMax + 1):
+            for gNew in range(gMin, gMax + 1):
+                for bNew in range(bMin, bMax + 1):
+                    RGBNew = (rNew, gNew, bNew)
+                    colorName = getColorName(RGBNew)
+                    
+                    if colorName != "Unknown":
+                        return colorName
 
     else:
-        return False
+        return colorName
+
+#------------------------------------------------------------------------------------------------------------------------------
+# Get the color name.
+#------------------------------------------------------------------------------------------------------------------------------
+def getColorName(RGB):
+    colorName = "Unknown"
+    colorHex = '%02x%02x%02x' % RGB
+    urlAPI = "https://colornames.org/search/json/?hex=" + colorHex.upper()
+    response = requests.post(urlAPI)
+
+    if response.status_code == 200:
+        colorName = response.json()['name']
+
+        if colorName == None:
+            colorName = "Unknown"
+
+    return colorName
 
 #------------------------------------------------------------------------------------------------------------------------------
 # Main lambda handler
@@ -141,8 +90,9 @@ def lambda_handler(event, context):
     credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds, scope)
     gc = gspread.authorize(credentials) 
 
+    # Open the All Colors sheet so that we can populate the color names.
     sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/15TgNrC84NVp9XX5UTXDwCidty3YKWlezTdHDL1gA3_w')
-    worksheet = sheet.worksheet("Form Responses 1")
+    worksheet = sheet.worksheet("All Colors")
 
     # Read the columns from the sheet.
     submitName = worksheet.col_values(3)
@@ -224,7 +174,7 @@ def lambda_handler(event, context):
                     bOriginal = RGB[2]
 
                     # Get closest name
-                    colorName = "" 
+                    colorName = "" #getClosestColorName(RGB, 5)
 
                     # Round to nearest 5.
                     R = 5 * round(rOriginal/5)
