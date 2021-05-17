@@ -8,11 +8,8 @@
 
 import boto3
 import json
-import os
 import datetime
-import time
 import gspread
-import requests
 import re
 from PIL import ImageColor
 from oauth2client.service_account import ServiceAccountCredentials
