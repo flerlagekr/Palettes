@@ -50,7 +50,7 @@ def getColorName(colorHex):
 def lambda_handler(event, context):
     # Get the Google Sheets credentials from S3
     s3 = boto3.client('s3')
-    bucket = "flerlage-lambda"
+    bucket = "<Bucket Here>"
     prefBucket = "flerlage-apps"
 
     key = "creds.json"
@@ -66,7 +66,7 @@ def lambda_handler(event, context):
     gc = gspread.authorize(credentials) 
 
     # Open the All Colors sheet so that we can populate the color names.
-    sheet = gc.open_by_url('https://docs.google.com/spreadsheets/d/15TgNrC84NVp9XX5UTXDwCidty3YKWlezTdHDL1gA3_w')
+    sheet = gc.open_by_url('<Google Sheet URL Here>')
     worksheet = sheet.worksheet("All Colors")
 
     # Read the columns from the sheet.
