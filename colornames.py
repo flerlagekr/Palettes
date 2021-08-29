@@ -1,7 +1,7 @@
 #  Written by Ken Flerlage, April, 2021
 #
 #  Look up color names from a list of hex colors in Google Sheets
-#  Uses the API from https://npm.io/package/color-name-list
+#  Uses the API from https://api.color.pizza/v1/
 #
 #  This code is in the public domain
 
@@ -83,7 +83,7 @@ def lambda_handler(event, context):
         if i < len(colorNames):
             # Column has a value for this row.
             if overwriteAllColors == True or colorNames[i] == "":
-                # Name needs to be populated.colorNames
+                # Name needs to be populated.
                 processColorName = True
             else:
                 processColorName = False
