@@ -123,7 +123,7 @@ def validHex(hexString):
 def lambda_handler(event, context):
     # Get the Google Sheets credentials from S3
     s3 = boto3.client('s3')
-    bucket = "flerlage-lambda"
+    bucket = "<bucket name>"
     prefBucket = "flerlage-apps"
 
     key = "creds.json"
