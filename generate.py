@@ -258,6 +258,11 @@ def lambda_handler(event, context):
             # Close out the palette.
             out = out + "        </color-palette>\n"
 
+    # Add the transparent palette to the end.
+    out = out + '    	<color-palette name="Transparent by Ken Flerlage" type="regular">\n'
+    out = out + '            <color>#ffffff00</color>\n'
+    out = out + '    	</color-palette>\n'
+
     # Write the end of the preferences file.
     out = out + "    </preferences>\n"
     out = out + "</workbook>\n"
